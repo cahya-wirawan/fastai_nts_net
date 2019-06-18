@@ -117,11 +117,11 @@ class NTSNet(nn.Module):
         hidden_layer = 512
         self.backbone_classifier = torch.nn.Sequential(
           torch.nn.BatchNorm1d(num_ftrs),
-          torch.nn.Dropout(0.25),
+          torch.nn.Dropout(0.15),
           torch.nn.Linear(num_ftrs, hidden_layer),
           torch.nn.ReLU(inplace=True),
           torch.nn.BatchNorm1d(hidden_layer),
-          torch.nn.Dropout(0.5),
+          torch.nn.Dropout(0.25),
           torch.nn.Linear(hidden_layer, data.c),
         )
 

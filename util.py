@@ -1,9 +1,8 @@
 from fastai import *
 from fastai.vision.learner import _resnet_split
-from model import *
-from prediction import *
-from loss_functions import *
-from model import _nts_split
+from .model import *
+from .loss_functions import *
+from .model import _nts_split
 
 
 def ntsnet_learner(data, original_resnet=False):
@@ -26,7 +25,7 @@ def ntsnet_learner(data, original_resnet=False):
         nf = num_features_model(nn.Sequential(*body.children())) * 2
         head = create_head(nf, data.c)
         model = nn.Sequential(body, head)
-        learn = Learner(data, model, loss_func=total_loss, metrics=metric)
+        learn = Learner(data, model, metrics=accuracy)
         learn.split(_resnet_split)
         learn.freeze()
         apply_init(learn.model[1], init)
