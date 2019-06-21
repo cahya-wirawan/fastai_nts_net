@@ -117,22 +117,38 @@ class NTSNet(nn.Module):
         hidden_layer = 512
         self.backbone_classifier = torch.nn.Sequential(
           torch.nn.BatchNorm1d(num_ftrs),
-          torch.nn.Dropout(0.15),
+          torch.nn.Dropout(0.25),
           torch.nn.Linear(num_ftrs, hidden_layer),
           torch.nn.ReLU(inplace=True),
           torch.nn.BatchNorm1d(hidden_layer),
-          torch.nn.Dropout(0.25),
+          torch.nn.Dropout(0.50),
           torch.nn.Linear(hidden_layer, data.c),
         )
 
         self.pad = ZeroPad2d(padding=self.size_t)
-                               
+
         self.proposal_net = NavigatorUnit()
         # self.concat_net = nn.Linear(2048 * (CAT_NUM + 1), 200)
-        self.concat_net = nn.Linear(2 * 2048 * (self.cat_num + 1), data.c)
+        # self.concat_net = nn.Linear(2 * 2048 * (self.cat_num + 1), data.c)
+        num_ftrs =  2 * 2048 * (self.cat_num + 1)
+        self.concat_net = torch.nn.Sequential(
+          torch.nn.BatchNorm1d(num_ftrs),
+          torch.nn.Dropout(0.25),
+          torch.nn.Linear(num_ftrs, hidden_layer),
+          torch.nn.ReLU(inplace=True),
+          torch.nn.BatchNorm1d(hidden_layer),
+          torch.nn.Dropout(0.50),
+          torch.nn.Linear(hidden_layer, data.c),
+        )
+
         # self.partcls_net = nn.Linear(512 * 4, 200)
         self.partcls_net = nn.Linear(2 * 512 * 4, data.c)
-        
+
+    def forward_(self, x):
+        out = self.backbone(x)
+        out = self.backbone_tail(out.detach())
+        out = self.backbone_classifier(out)
+        return 0, out, 0, 0
 
     def forward(self, x):
         
