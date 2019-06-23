@@ -35,15 +35,6 @@ def ntsnet_learner(data, original_resnet=False, loss_func=total_loss, metrics=me
         #apply_init(learn.model.partcls_net, init)
         #apply_init(learn.model.concat_net, init)
         #apply_init(learn.model.pad, init)
-    """
-    else:
-        nf = num_features_model(nn.Sequential(*body.children())) * 2
-        head = create_head(nf, data.c)
-        model = nn.Sequential(body, head)
-        learn = Learner(data, model, metrics=accuracy)
-        learn.split(_resnet_split)
-        learn.freeze()
-        apply_init(learn.model[1], init)
-    """
+
 
     return learn

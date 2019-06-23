@@ -94,42 +94,14 @@ class NTSNet(nn.Module):
 
     def __init__(self, data:DataBunch, backbone, topN=6,  cat_num:int=4):
         super(NTSNet, self).__init__()
-        body = create_body(backbone, pretrained=True)
-        num_ftrs = 2 * 2048
-        hidden_layer = 512
-        head = nn.Sequential(
-            AdaptiveConcatPool2d(),
-            Flatten(),
-            torch.nn.BatchNorm1d(num_ftrs),
-            torch.nn.Dropout(0.25),
-            torch.nn.Linear(num_ftrs, hidden_layer),
-            torch.nn.ReLU(inplace=True),
-            torch.nn.BatchNorm1d(hidden_layer),
-            torch.nn.Dropout(0.50),
-            torch.nn.Linear(hidden_layer, data.c),
-        )
-        self.backbone = nn.Sequential(body, head)
-        init = nn.init.kaiming_normal_
-        apply_init(self.backbone[1], init)
-        """
+        self.backbone = create_body(backbone, pretrained=True)
         self.backbone_tail = nn.Sequential(
             AdaptiveConcatPool2d(),
-            Flatten(),
-            torch.nn.BatchNorm1d(num_ftrs),
-            torch.nn.Dropout(0.25),
-            torch.nn.Linear(num_ftrs, hidden_layer),
-            torch.nn.ReLU(inplace=True),
-            torch.nn.BatchNorm1d(hidden_layer),
-            torch.nn.Dropout(0.50),
-            torch.nn.Linear(hidden_layer, data.c),
+            Flatten()
         )
-        self.backbone_tail.add_module('Final Pool', AdaptiveConcatPool2d())
-        self.backbone_tail.add_module('Flatten', Flatten())
-        
-
         num_ftrs = 2 * 2048
         hidden_layer = 512
-        self.backbone_classifier = torch.nn.Sequential(
+        self.backbone_classifier = nn.Sequential(
             torch.nn.BatchNorm1d(num_ftrs),
             torch.nn.Dropout(0.25),
             torch.nn.Linear(num_ftrs, hidden_layer),
@@ -138,11 +110,13 @@ class NTSNet(nn.Module):
             torch.nn.Dropout(0.50),
             torch.nn.Linear(hidden_layer, data.c),
         )
-        """
+        init = nn.init.kaiming_normal_
+        apply_init(self.backbone_tail, init)
+        apply_init(self.backbone_classifier, init)
     def forward(self, x):
         out = self.backbone(x)
-        #out = self.backbone_tail(out.detach())
-        #out = self.backbone_classifier(out)
+        out = self.backbone_tail(out)
+        out = self.backbone_classifier(out)
         return out
 
     def __init___(self, data:DataBunch, backbone:nn.Sequential, topN=6,  cat_num:int=4):
@@ -234,7 +208,7 @@ class NTSNet(nn.Module):
         return concat_logits, raw_logits, part_logits, top_n_prob
 
 def _nts_split(m:nn.Sequential) -> List[nn.Module]:
-    children = list(m.children())[0]
+    children = list(m.children())
     groups = [children[0][6], children[1]]
     return groups
 
