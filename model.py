@@ -91,7 +91,61 @@ class NavigatorUnit(nn.Module):
         return torch.cat((t1, t2, t3), dim=1)
 
 class NTSNet(nn.Module):
-    def __init__(self, data:DataBunch, backbone:nn.Sequential, topN=6,  cat_num:int=4):
+
+    def __init__(self, data:DataBunch, backbone, topN=6,  cat_num:int=4):
+        super(NTSNet, self).__init__()
+        body = create_body(backbone, pretrained=True)
+        num_ftrs = 2 * 2048
+        hidden_layer = 512
+        head = nn.Sequential(
+            AdaptiveConcatPool2d(),
+            Flatten(),
+            torch.nn.BatchNorm1d(num_ftrs),
+            torch.nn.Dropout(0.25),
+            torch.nn.Linear(num_ftrs, hidden_layer),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.BatchNorm1d(hidden_layer),
+            torch.nn.Dropout(0.50),
+            torch.nn.Linear(hidden_layer, data.c),
+        )
+        self.backbone = nn.Sequential(body, head)
+        init = nn.init.kaiming_normal_
+        apply_init(self.backbone[1], init)
+        """
+        self.backbone_tail = nn.Sequential(
+            AdaptiveConcatPool2d(),
+            Flatten(),
+            torch.nn.BatchNorm1d(num_ftrs),
+            torch.nn.Dropout(0.25),
+            torch.nn.Linear(num_ftrs, hidden_layer),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.BatchNorm1d(hidden_layer),
+            torch.nn.Dropout(0.50),
+            torch.nn.Linear(hidden_layer, data.c),
+        )
+        self.backbone_tail.add_module('Final Pool', AdaptiveConcatPool2d())
+        self.backbone_tail.add_module('Flatten', Flatten())
+        
+
+        num_ftrs = 2 * 2048
+        hidden_layer = 512
+        self.backbone_classifier = torch.nn.Sequential(
+            torch.nn.BatchNorm1d(num_ftrs),
+            torch.nn.Dropout(0.25),
+            torch.nn.Linear(num_ftrs, hidden_layer),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.BatchNorm1d(hidden_layer),
+            torch.nn.Dropout(0.50),
+            torch.nn.Linear(hidden_layer, data.c),
+        )
+        """
+    def forward(self, x):
+        out = self.backbone(x)
+        #out = self.backbone_tail(out.detach())
+        #out = self.backbone_classifier(out)
+        return out
+
+    def __init___(self, data:DataBunch, backbone:nn.Sequential, topN=6,  cat_num:int=4):
         super(NTSNet, self).__init__()
         self.cat_num=cat_num
         self.classes = data.c
@@ -130,27 +184,12 @@ class NTSNet(nn.Module):
         self.proposal_net = NavigatorUnit()
         # self.concat_net = nn.Linear(2048 * (CAT_NUM + 1), 200)
         # self.concat_net = nn.Linear(2 * 2048 * (self.cat_num + 1), data.c)
-        num_ftrs =  2 * 2048 * (self.cat_num + 1)
-        self.concat_net = torch.nn.Sequential(
-          torch.nn.BatchNorm1d(num_ftrs),
-          torch.nn.Dropout(0.25),
-          torch.nn.Linear(num_ftrs, hidden_layer),
-          torch.nn.ReLU(inplace=True),
-          torch.nn.BatchNorm1d(hidden_layer),
-          torch.nn.Dropout(0.50),
-          torch.nn.Linear(hidden_layer, data.c),
-        )
+        self.concat_net = nn.Linear(2 * 2048 * (self.cat_num + 1), data.c)
 
         # self.partcls_net = nn.Linear(512 * 4, 200)
         self.partcls_net = nn.Linear(2 * 512 * 4, data.c)
 
     def forward_(self, x):
-        out = self.backbone(x)
-        out = self.backbone_tail(out.detach())
-        out = self.backbone_classifier(out)
-        return 0, out, 0, 0
-
-    def forward(self, x):
         
         raw_pre = self.backbone(x)         
         rpn_score = self.proposal_net(raw_pre)
@@ -195,8 +234,8 @@ class NTSNet(nn.Module):
         return concat_logits, raw_logits, part_logits, top_n_prob
 
 def _nts_split(m:nn.Sequential) -> List[nn.Module]:
-    groups = [[*list(m.children())[:1]]]
-    groups += [[*list(m.children())[1:]]]
+    children = list(m.children())[0]
+    groups = [children[0][6], children[1]]
     return groups
 
 
