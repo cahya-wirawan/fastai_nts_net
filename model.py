@@ -94,6 +94,20 @@ class NTSNet(nn.Module):
 
     def __init__(self, data:DataBunch, backbone, topN=6,  cat_num:int=4):
         super(NTSNet, self).__init__()
+        self.cat_num=cat_num
+        self.classes = data.c
+        size = data.train_ds.tfmargs.get('size')
+        self.in_size = (size, size)
+        self.size = size
+        self.size_t = size//2
+        self.topN = topN
+
+        self.pad_side = size//2
+        _, edge_anchors, _ = generate_default_anchor_maps(input_shape=self.in_size)
+        self.edge_anchors = (edge_anchors + self.pad_side).astype(np.int)
+        self.edge_anchors = np.concatenate(
+            (self.edge_anchors.copy(), np.arange(0, len(self.edge_anchors)).reshape(-1,1)), axis=1)
+
         self.backbone = create_body(backbone, pretrained=True)
         self.backbone_tail = nn.Sequential(
             AdaptiveConcatPool2d(),
@@ -113,7 +127,14 @@ class NTSNet(nn.Module):
         init = nn.init.kaiming_normal_
         apply_init(self.backbone_tail, init)
         apply_init(self.backbone_classifier, init)
-    def forward(self, x):
+
+        self.pad = ZeroPad2d(padding=self.size_t)
+
+        self.proposal_net = NavigatorUnit()
+        self.concat_net = nn.Linear(2 * 2048 * (self.cat_num + 1), data.c)
+        self.partcls_net = nn.Linear(2 * 512 * 4, data.c)
+
+    def forward_(self, x):
         out = self.backbone(x)
         out = self.backbone_tail(out)
         out = self.backbone_classifier(out)
@@ -163,7 +184,7 @@ class NTSNet(nn.Module):
         # self.partcls_net = nn.Linear(512 * 4, 200)
         self.partcls_net = nn.Linear(2 * 512 * 4, data.c)
 
-    def forward_(self, x):
+    def forward(self, x):
         
         raw_pre = self.backbone(x)         
         rpn_score = self.proposal_net(raw_pre)

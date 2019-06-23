@@ -3,7 +3,7 @@ from .loss_functions import *
 from .model import _nts_split
 
 
-def ntsnet_learner(data, original_resnet=False, loss_func=total_loss, metrics=metric,**kwargs:Any):
+def ntsnet_learner(data, loss_func=total_loss, metrics=metric,**kwargs:Any):
     backbone = models.resnet50
     net = NTSNet(data, backbone, 6, 4)
     learn = Learner(data, net, loss_func=loss_func, metrics=metrics, **kwargs)
